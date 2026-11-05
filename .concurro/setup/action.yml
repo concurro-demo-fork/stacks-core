@@ -1,0 +1,19 @@
+name: stacks-core demo tools
+description: Install shared tools from the approved base; workspace installs belong in each working copy.
+inputs:
+  base:
+    description: Absolute path to the approved upstream checkout
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install the repository toolchain
+      shell: bash
+      working-directory: ${{ inputs.base }}
+      run: |
+        rustup show active-toolchain
+        rustup component add rustfmt clippy
+    - name: Install nextest
+      uses: taiki-e/install-action@65851e10cd6c377f11a60e600abc07cb08643468 # v2.79.3
+      with:
+        tool: nextest@0.9.145
