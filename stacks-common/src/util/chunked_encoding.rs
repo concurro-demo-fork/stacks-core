@@ -377,8 +377,7 @@ impl<'a, 'state, W: Write> HttpChunkedTransferWriter<'a, 'state, W> {
     /// Reject continuation after an underlying write may have left a partial frame.
     fn check_failed(&self) -> io::Result<()> {
         if self.state.failed {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
+            Err(io::Error::other(
                 "chunked transfer writer failed earlier; response is incomplete",
             ))
         } else {
@@ -392,9 +391,8 @@ impl<'a, 'state, W: Write> HttpChunkedTransferWriter<'a, 'state, W> {
             self.state.chunk_size,
             &self.state.chunk_buf,
         )
-        .map_err(|error| {
+        .inspect_err(|_| {
             self.state.failed = true;
-            error
         })?;
         self.state.chunk_buf.clear();
         Ok(sent)
@@ -435,8 +433,7 @@ impl<W: Write> Write for HttpChunkedTransferWriter<'_, '_, W> {
         }
         self.check_failed()?;
         if self.state.corked {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "chunked transfer response already completed",
             ));
         }
@@ -456,9 +453,8 @@ impl<W: Write> Write for HttpChunkedTransferWriter<'_, '_, W> {
                     self.state.chunk_size,
                     &buf[written..(written + self.state.chunk_size)],
                 )
-                .map_err(|error| {
+                .inspect_err(|_| {
                     self.state.failed = true;
-                    error
                 })?;
                 written += nw;
             } else {
@@ -477,9 +473,8 @@ impl<W: Write> Write for HttpChunkedTransferWriter<'_, '_, W> {
         if !self.state.chunk_buf.is_empty() {
             self.flush_chunk()?;
         }
-        self.fd.write_all(b"0\r\n\r\n").map_err(|error| {
+        self.fd.write_all(b"0\r\n\r\n").inspect_err(|_| {
             self.state.failed = true;
-            error
         })?;
         self.state.corked = true;
         Ok(())
