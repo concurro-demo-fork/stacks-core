@@ -567,7 +567,7 @@ mod tests {
         pub fn flush<E>(&mut self, mut f: impl FnMut(&u32, u32) -> Result<(), E>) -> Result<(), E> {
             for node in self.cache.iter_mut().rev() {
                 if node.dirty {
-                    f(&node.key, node.value.clone())?;
+                    f(&node.key, node.value)?;
                 }
                 node.dirty = false;
             }

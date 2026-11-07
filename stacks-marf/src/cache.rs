@@ -263,9 +263,10 @@ impl<T: MarfTrieId> PatchedNodeCache<T> {
             }
             None => None,
         };
-        let hit = match found {
-            Some((node, Some(hash))) => Some((node, hash)),
-            Some((node, None)) if !read_hash => Some((node, TrieHash([0u8; 32]))),
+        let hit = match (found, read_hash) {
+            // a no-hash read always gets the placeholder, even if a real hash is stored
+            (Some((node, _)), false) => Some((node, TrieHash([0u8; 32]))),
+            (Some((node, Some(hash))), true) => Some((node, hash)),
             _ => None,
         };
         if hit.is_some() {
@@ -419,7 +420,12 @@ mod tests {
         cache.insert(key(1), &node(1), Some(real_hash()));
         assert_eq!(cache.len(), 1);
         assert_eq!(cache.get(&key(1), true).unwrap().1, real_hash());
-        assert!(cache.get(&key(1), false).is_some());
+        let (_, h) = cache.get(&key(1), false).expect("hit without hash");
+        assert_eq!(
+            h,
+            TrieHash([0u8; 32]),
+            "no-hash hit must stay a placeholder"
+        );
 
         let stats = cache.take_stats();
         assert_eq!(stats.inserts, 2);
