@@ -365,8 +365,8 @@ fn bhc_report(label: &str, capacity: Option<usize>, run: &BhcRun) {
 /// linear run reads from (default 60000).
 ///
 /// Default mode has a main chain plus a fork of half its length from its midpoint, reads that
-/// alternate between the two tips, and checks that when the working set fits the capacity the
-/// second replay has no misses.  Linear mode (use with `BHC_BLOCKS=70000`) measures the distinct
+/// alternate between the two forks at seeded-random historical tips, and checks that when the
+/// working set fits the capacity the second replay has no misses.  Linear mode (use with `BHC_BLOCKS=70000`) measures the distinct
 /// IDs that the reads touch, checks that they fit the default capacity, and then checks that the
 /// second replay at the default capacity has no misses.
 #[test]
@@ -395,7 +395,15 @@ fn marf_block_hash_cache_read_bench() {
     );
 
     let mut rng = BhcRng(0x9e3779b97f4a7c15);
-    let tips = history.tips();
+    // Alternate between the forks, reading from a seeded-random historical tip on each
+    let fork_len = total - blocks;
+    let random_tip = |rng: &mut BhcRng, i: usize| {
+        if i % 2 == 1 && fork_len > 0 {
+            blocks + rng.next(fork_len)
+        } else {
+            rng.next(blocks)
+        }
+    };
     let mut reads = vec![];
     for i in 0..num_reads {
         let (tip, depth) = if linear {
@@ -404,7 +412,7 @@ fn marf_block_hash_cache_read_bench() {
             let tip = lo + rng.next(window);
             (tip, rng.next(tip - lo + 1))
         } else {
-            let tip = tips[i % tips.len()];
+            let tip = random_tip(&mut rng, i);
             (tip, rng.next(history.chain_len(tip)))
         };
         reads.push((tip, history.ancestor(tip, depth), rng.next(keys_per_block)));
@@ -412,7 +420,7 @@ fn marf_block_hash_cache_read_bench() {
     let mut heights = vec![];
     if !linear {
         for i in 0..2000 {
-            let tip = tips[i % tips.len()];
+            let tip = random_tip(&mut rng, i);
             heights.push((tip, rng.next(history.chain_len(tip))));
         }
     }
