@@ -10,6 +10,7 @@ in CONTRIBUTING.md. Do not require the production CI matrix or its internal revi
 process. The controller handles publication, independent review and readiness; agents
 do not push branches, publish PRs or merge.
 
-Demo CI builds and tests only stacks-common and checks its formatting. Use focused
-tests appropriate to the requested change, and distinguish those results from coverage
-of other crates. Never describe the limited demo checks as full production validation.
+Use the demo CI workflow and its shared build action in the checked-out revision as
+the source of truth for tested packages, features and filters. Run focused tests
+appropriate to the requested change, and distinguish those results from CI coverage.
+Never describe the limited demo checks as full production validation.
