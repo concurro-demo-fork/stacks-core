@@ -41,6 +41,9 @@ paths:
   - .md
   - .toml
   - .lock
+  - .yaml
+  - .yml
+  - .json
   - .added
   - .changed
   - .fixed
