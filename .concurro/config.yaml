@@ -32,7 +32,6 @@ agents:
   - sol61-high
 max_plan_revisions: 2
 policy_documents:
-- docs/concurro-demo.md
 - CONTRIBUTING.md
 - .github/copilot-instructions.md
 - .agents/skills/stacks-pr-review/SKILL.md
@@ -52,8 +51,7 @@ paths:
   - tools/
   - contrib/
   - scripts/
-  protected_files:
-  - docs/concurro-demo.md
+  protected_files: []
   protected:
   - '**/rust-toolchain*'
   - '**/rustfmt.toml'
