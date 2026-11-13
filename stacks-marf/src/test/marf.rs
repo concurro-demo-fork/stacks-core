@@ -2698,6 +2698,7 @@ fn abandon_commit_c_and_check(opts: &MARFOpenOpts, marf: &mut MARF<BlockHeaderHa
 
     let mut reference = abandon_reference(opts, &ABANDON_C, &[("k", "vc")]);
     abandon_assert_same_root(marf, &mut reference, &ABANDON_C);
+    abandon_assert_same_root(marf, &mut reference, &ABANDON_A);
 }
 
 /// Dropping a transaction that extended to B and wrote to it, without flushing, leaves no open
@@ -2899,6 +2900,10 @@ fn test_abandon_writes_to_preexisting_extension(marf_opts: &MARFOpenOpts) {
         abandon_get(&mut marf, &ABANDON_B, "k3").as_deref(),
         Some("vy")
     );
+    marf.commit().unwrap();
+    let mut reference = abandon_reference(marf_opts, &ABANDON_B, &[("k", "vb"), ("k3", "vy")]);
+    abandon_assert_same_root(&mut marf, &mut reference, &ABANDON_B);
+    abandon_assert_same_root(&mut marf, &mut reference, &ABANDON_A);
 }
 
 /// An abandoned transaction that flushed (consumed) an extension opened earlier gives that
@@ -2932,9 +2937,23 @@ fn test_abandon_consumed_preexisting_unconfirmed_extension() {
     let path = path.to_str().unwrap();
     drop(abandon_marf_at(path, &opts::OPTS_IMM));
 
+    // reference: the same unconfirmed trie, committed without any abandoned transaction
+    let reference_dir = tempfile::tempdir().unwrap();
+    let reference_path = reference_dir.path().join("marf.sqlite");
+    let reference_path = reference_path.to_str().unwrap();
+    drop(abandon_marf_at(reference_path, &opts::OPTS_IMM));
+    let mut reference =
+        MARF::<BlockHeaderHash>::from_path_unconfirmed(reference_path, opts::OPTS_IMM.clone())
+            .unwrap();
+    let unconfirmed = reference.begin_unconfirmed(&ABANDON_A).unwrap();
+    reference.insert("ku", MARFValue::from_value("vx")).unwrap();
+    reference.commit().unwrap();
+    let reference_root = reference.get_root_hash_at(&unconfirmed).unwrap();
+    let reference_a_root = reference.get_root_hash_at(&ABANDON_A).unwrap();
+
     let mut marf =
         MARF::<BlockHeaderHash>::from_path_unconfirmed(path, opts::OPTS_IMM.clone()).unwrap();
-    let unconfirmed = marf.begin_unconfirmed(&ABANDON_A).unwrap();
+    assert_eq!(marf.begin_unconfirmed(&ABANDON_A).unwrap(), unconfirmed);
     marf.insert("ku", MARFValue::from_value("vx")).unwrap();
     {
         let mut tx = marf.begin_tx().unwrap();
@@ -2954,12 +2973,15 @@ fn test_abandon_consumed_preexisting_unconfirmed_extension() {
 
     // the extension can be committed, then re-opened
     marf.commit().unwrap();
+    assert_eq!(marf.get_root_hash_at(&unconfirmed).unwrap(), reference_root);
+    assert_eq!(marf.get_root_hash_at(&ABANDON_A).unwrap(), reference_a_root);
     assert_eq!(marf.begin_unconfirmed(&ABANDON_A).unwrap(), unconfirmed);
     assert_eq!(
         abandon_get(&mut marf, &unconfirmed, "ku").as_deref(),
         Some("vx")
     );
     marf.commit().unwrap();
+    assert_eq!(marf.get_root_hash_at(&unconfirmed).unwrap(), reference_root);
 
     // dropping unconfirmed state inside the transaction removes it for good
     marf.begin_unconfirmed(&ABANDON_A).unwrap();
@@ -3058,6 +3080,15 @@ fn test_abandon_external_blob_offsets() {
         Some(MARFValue::from_value("vy"))
     );
     assert_eq!(abandon_get(&mut marf, &c2, "k").as_deref(), Some("va"));
+
+    // roots match handles that never saw the abandoned blocks
+    let c1_keys: Vec<String> = (0..40).map(|i| format!("c1-{i}")).collect();
+    let c1_kvs: Vec<(&str, &str)> = c1_keys.iter().map(|key| (key.as_str(), "vc")).collect();
+    let mut reference = abandon_reference(&opts::OPTS_IMM_EXT, &c1, &c1_kvs);
+    abandon_assert_same_root(&mut marf, &mut reference, &c1);
+    abandon_assert_same_root(&mut marf, &mut reference, &ABANDON_A);
+    let mut reference = abandon_reference(&opts::OPTS_IMM_EXT, &c2, &[("c2", "vy")]);
+    abandon_assert_same_root(&mut marf, &mut reference, &c2);
     assert_eq!(
         abandon_get(&mut marf, &ABANDON_A, "k").as_deref(),
         Some("va")
