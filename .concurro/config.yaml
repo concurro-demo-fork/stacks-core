@@ -58,3 +58,7 @@ max_design_reopens: 2
 max_outcome_issues: 10
 max_outcome_lessons: 3
 max_review_repairs: 4
+
+# Personal OpenAI funding resolves the sponsor's ChatGPT credential in the vault.
+provider_credential_routes:
+  openai: chatgpt-subscription
